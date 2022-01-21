@@ -14,7 +14,10 @@ links = "mbedcrypto"
 [build-dependencies]
 bindgen = { version = "0.59.2", optional = true }
 cc = "1.0.59"
-cmake = "0.1.44"
+# cmake 0.1.46 needs a newer version of cmake (one that accepts
+# --parallel) than the one which comes with Ubuntu 18.04.5, currently
+# used by Veracruz CI tests.
+cmake = ">=0.1.44, <0.1.46"
 walkdir = "2.3.1"
 
 [features]
