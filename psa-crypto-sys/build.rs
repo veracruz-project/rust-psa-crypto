@@ -192,6 +192,9 @@ mod operations {
         let mbed_build_path = Config::new(&mbedtls_dir)
             .cflag(format!("-I{}", out_dir))
             .cflag("-DMBEDTLS_CONFIG_FILE='<config.h>'")
+            .cflag("-U_FORTIFY_SOURCE")
+            .cflag("-D_FORTIFY_SOURCE=0")
+            .cflag("-D__USE_FORTIFY_LEVEL=0")
             .cflag(format!("-I{}/src/c/mbedtls-config",
                            env::current_dir()?.to_str().unwrap()))
             .cflag("-DMBEDTLS_USER_CONFIG_FILE='<user_config.h>'")
