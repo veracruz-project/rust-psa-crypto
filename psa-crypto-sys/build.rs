@@ -51,8 +51,10 @@ mod common {
         let mbedtls_dir = String::from("./vendor");
         let mbedtls_config = mbedtls_dir + "/scripts/config.py";
 
-        println!("cargo:rerun-if-changed=src/c/mbedtls-config/user_config.h");
+        // These two files are added for Veracruz:
+        println!("cargo:rerun-if-changed=src/c/config/veracruz-config.h");
         println!("cargo:rerun-if-changed=src/c/mbedtls_hardware_poll.c");
+
         println!("cargo:rerun-if-changed=src/c/shim.c");
         println!("cargo:rerun-if-changed=src/c/shim.h");
 
@@ -70,7 +72,7 @@ mod common {
         if !::std::process::Command::new(mbedtls_config)
             .arg("--write")
             .arg(&(out_dir + "/config.h"))
-            .arg("crypto_baremetal")
+            .arg("crypto")
             .status()
             .map_err(|_| Error::new(ErrorKind::Other, "configuring mbedtls failed"))?
             .success()
@@ -93,10 +95,10 @@ mod common {
 
         let shim_bindings = bindgen::Builder::default()
             .clang_arg(format!("-I{}", out_dir))
-            .clang_arg("-DMBEDTLS_CONFIG_FILE=<config.h>")
-            .clang_arg(format!("-I{}/src/c/mbedtls-config",
+            // Veracruz config file and include path:
+            .clang_arg("-DMBEDTLS_CONFIG_FILE=<veracruz-config.h>")
+            .clang_arg(format!("-I{}/src/c/config",
                                env::current_dir()?.to_str().unwrap()))
-            .clang_arg("-DMBEDTLS_USER_CONFIG_FILE=<user_config.h>")
             .clang_arg(format!("-I{}", mbed_include_dir))
             .rustfmt_bindings(true)
             .header("src/c/shim.h")
@@ -122,11 +124,11 @@ mod common {
         // Compile and package the shim library
         cc::Build::new()
             .include(&out_dir)
-            .define("MBEDTLS_CONFIG_FILE", "<config.h>")
-            .include("src/c/mbedtls-config")
-            .define("MBEDTLS_USER_CONFIG_FILE", "<user_config.h>")
+            // Veracruz config file and include path:
+            .define("MBEDTLS_CONFIG_FILE", "<veracruz-config.h>")
+            .include("src/c/config")
             .include(include_dir)
-            .file("./src/c/mbedtls_hardware_poll.c")
+            .file("./src/c/mbedtls_hardware_poll.c") // for Veracruz
             .file("./src/c/shim.c")
             .warnings(true)
             .flag("-Werror")
@@ -191,13 +193,14 @@ mod operations {
         // Build the MbedTLS libraries
         let mbed_build_path = Config::new(&mbedtls_dir)
             .cflag(format!("-I{}", out_dir))
-            .cflag("-DMBEDTLS_CONFIG_FILE='<config.h>'")
+            // Veracruz config file and include path:
+            .cflag("-DMBEDTLS_CONFIG_FILE='<veracruz-config.h>'")
+            .cflag(format!("-I{}/src/c/config",
+                           env::current_dir()?.to_str().unwrap()))
+            // Disable _FORTIFY_SOURCE for Veracruz on IceCap:
             .cflag("-U_FORTIFY_SOURCE")
             .cflag("-D_FORTIFY_SOURCE=0")
             .cflag("-D__USE_FORTIFY_LEVEL=0")
-            .cflag(format!("-I{}/src/c/mbedtls-config",
-                           env::current_dir()?.to_str().unwrap()))
-            .cflag("-DMBEDTLS_USER_CONFIG_FILE='<user_config.h>'")
             .define("ENABLE_PROGRAMS", "OFF")
             .define("ENABLE_TESTING", "OFF")
             .build();
